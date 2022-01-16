@@ -1,46 +1,66 @@
 const router = require("koa-router")();
-const User = require("../models/userSchema");
-const Counter = require("../models/counterSchema");
-const jwt = require("jsonwebtoken");
+const Role = require("../models/roleSchema");
+// const User = require("../models/userSchema");
+
 const util = require("../utils/util");
-router.get("/roles/allList", (ctx) => {
-  ctx.body = {
-    code: 200,
-    data: [
-      {
-        _id: "60150cb764de99631b2c3cd3",
-        roleName: "产品经理",
+router.get("/roles/allList", async (ctx) => {
+  try {
+    const list = await Role.find({}, "_id roleName");
+    ctx.body = util.success({
+      data: {
+        list,
       },
-      {
-        _id: "60180b07b1eaed6c45fbebdb",
-        roleName: "研发",
+    });
+  } catch (error) {
+    ctx.body = util.fail({ msg: `查询异常:${error.stack}` });
+  }
+});
+router.get("/roles/list", async (ctx) => {
+  const { page, skipIndex } = util.pager(ctx.request.query);
+  try {
+    const query = Role.find({});
+    const list = await query.skip(skipIndex).limit(page.pageSize);
+    const total = await Role.countDocuments({});
+    ctx.body = util.success({
+      data: {
+        page: {
+          ...page,
+          total,
+        },
+        list,
       },
-      {
-        _id: "60180b59b1eaed6c45fbebdc",
-        roleName: "测试",
-      },
-      {
-        _id: "60180b5eb1eaed6c45fbebdd",
-        roleName: "JAVA",
-      },
-      {
-        _id: "60180b64b1eaed6c45fbebde",
-        roleName: "运维",
-      },
-      {
-        _id: "60180b69b1eaed6c45fbebdf",
-        roleName: "运营",
-      },
-      {
-        _id: "60180b76b1eaed6c45fbebe0",
-        roleName: "市场",
-      },
-      {
-        _id: "60180b80b1eaed6c45fbebe1",
-        roleName: "管理层",
-      },
-    ],
-  };
+    });
+  } catch (error) {
+    ctx.body = util.fail({ msg: `查询异常:${error.stack}` });
+  }
+});
+// 菜单编辑、删除、新增功能
+router.post("/roles/operate", async (ctx) => {
+  const { _id, action, ...params } = ctx.request.body;
+  let res, info;
+  try {
+    if (action == "add") {
+      params.createTime = Date.now();
+      res = await Role.create(params);
+      info = "创建成功";
+    } else if (action == "edit") {
+      params.updateTime = new Date();
+      res = await Role.findByIdAndUpdate(_id, params);
+      info = "编辑成功";
+    } else {
+      res = await Role.findByIdAndRemove(_id);
+      info = "删除成功";
+    }
+    ctx.body = util.success({ msg: info });
+  } catch (error) {
+    ctx.body = util.fail({ msg: error });
+  }
+});
+router.post("/roles/permission", async (ctx) => {
+  const { _id, permissionList } = ctx.request.body;
+  const updateTime = Date.now();
+  const res = await Role.findByIdAndUpdate(_id, { permissionList, updateTime });
+  ctx.body = util.success({ msg: "分配成功" });
 });
 router.get("/dept/list", (ctx) => {
   ctx.body = {

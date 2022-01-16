@@ -10,8 +10,6 @@ router.get("/list", async (ctx) => {
   if (menuName) params.menuName = menuName;
   if (menuState) params.menuState = menuState;
   let rootList = (await Menu.find(params)) || [];
-  console.log(rootList);
-
   const permissionList = getTreeMenu(rootList, null, []);
   ctx.body = util.success({ data: permissionList });
 });
@@ -34,7 +32,6 @@ function getTreeMenu(rootList, id, list) {
       item.action = item.children;
     }
   });
-  console.log(list, "lll");
   return list;
 }
 // 菜单编辑、删除、新增功能

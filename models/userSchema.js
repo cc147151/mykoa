@@ -30,11 +30,11 @@ const userSchema = mongoose.Schema({
   roleList: [], //系统角色
   createTime: {
     type: Date,
-    default: Date.now() - 0,
+    default: Date.now(),
   }, //创建时间
   lastLoginTime: {
     type: Date,
-    default: Date.now() - 0,
+    default: Date.now(),
   }, //更新时间
   remark: String,
 });

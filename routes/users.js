@@ -1,19 +1,19 @@
 const router = require("koa-router")();
 const User = require("../models/userSchema");
 const Counter = require("../models/counterSchema");
+const Role = require("../models/roleSchema");
 const jwt = require("jsonwebtoken");
 const util = require("../utils/util");
 router.prefix("/users");
 router.post("/login", async (ctx) => {
   try {
     const { userName, userPwd } = ctx.request.body;
-    console.log(userName, userPwd);
     const res = await User.findOne(
       {
         userName,
         userPwd,
       },
-      "userId userName"
+      "userId userName mobile"
     );
     if (res) {
       const data = res._doc;
@@ -23,7 +23,7 @@ router.post("/login", async (ctx) => {
           data,
         },
         "sjy",
-        { expiresIn: "1h" }
+        { expiresIn: "10h" }
       );
       data.token = token;
       // 解密
@@ -112,6 +112,7 @@ router.post("/operate", async (ctx) => {
           state,
           deptId,
           mobile,
+          createTime: Date.now(),
         });
         user.save();
         ctx.body = util.success("", "用户创建成功");
@@ -151,7 +152,39 @@ router.post("/delete", async (ctx) => {
   }
   ctx.body = util.fail("删除失败");
 });
-router.get("/profile", (ctx) => {
+router.get("/profile", async (ctx) => {
+  // console.log(ctx.header.authorization);
+  const token = ctx.header.authorization.split("Bearer ")[1];
+  const { data } = await jwt.verify(token, "sjy");
+  const res = await User.findOne(
+    {
+      userId: data.userId,
+    },
+    "roleList"
+  );
+  const { permissionList } = await Role.findOne(
+    { _id: res.roleList[0] },
+    "permissionList"
+  );
+  permissionList.menu = getTreeMenu(permissionList.menu, null, []);
+  // 递归拼接树形列表
+  function getTreeMenu(rootList, id, list) {
+    for (let i = 0; i < rootList.length; i++) {
+      let item = rootList[i];
+      if (String(item.parentId.slice().pop()) == String(id)) {
+        list.push(item);
+      }
+    }
+    list.map((item) => {
+      item.children = [];
+      getTreeMenu(rootList, item._id, item.children);
+      if (item.children.length == 0) {
+        delete item.children;
+      }
+    });
+    return list;
+  }
+
   ctx.body = {
     code: 200,
     data: {
@@ -182,7 +215,9 @@ router.get("/profile", (ctx) => {
           "distributePermission",
         ],
       },
+      permissionList,
     },
   };
 });
+
 module.exports = router;
