@@ -2,6 +2,7 @@ const router = require("koa-router")();
 const User = require("../models/userSchema");
 const Counter = require("../models/counterSchema");
 const Role = require("../models/roleSchema");
+const Menu = require("../models/menuSchema");
 const jwt = require("jsonwebtoken");
 const util = require("../utils/util");
 router.prefix("/users");
@@ -130,7 +131,6 @@ router.post("/operate", async (ctx) => {
         { userId },
         { mobile, job, state, roleList, deptId }
       );
-      console.log(res);
       ctx.body = util.success({ msg: "更新成功" });
     } catch (error) {
       ctx.body = util.fail({ msg: error });
@@ -162,17 +162,39 @@ router.get("/profile", async (ctx) => {
     },
     "roleList"
   );
-  const { permissionList } = await Role.findOne(
-    { _id: res.roleList[0] },
-    "permissionList"
-  );
-  permissionList.menu = getTreeMenu(permissionList.menu, null, []);
+  const menuModule = await Menu.find();
+  // 所有角色返回得信息
+  let permissionListArr = []; //
+  let menuCode = [];
+  for (let i = 0; i < res.roleList.length; i++) {
+    const { permissionList } = await Role.findOne(
+      { _id: res.roleList[i] },
+      "permissionList"
+    );
+    permissionListArr.push(permissionList);
+  }
+  // 筛选出来所有的_id 为了去重
+  let idArr = permissionListArr.map((item) => {
+    item.menuCodeArr && menuCode.push(...item.menuCodeArr);
+    return item.menu.map((itemMenu) => itemMenu._id);
+  });
+  // 去重
+  const tree_idArr = Array.from(new Set(idArr.flat()));
+  const targetMenu = menuModule.filter((item) => {
+    return tree_idArr.includes(String(item._id));
+  });
+  const permissionList = {};
+  const menuCodeArr = Array.from(new Set(menuCode));
+  permissionList.menuCodeArr = menuCodeArr;
+  // 把一条一条得路由转成路由树
+  permissionList.menu = getTreeMenu(targetMenu, null, []);
+
   // 递归拼接树形列表
   function getTreeMenu(rootList, id, list) {
     for (let i = 0; i < rootList.length; i++) {
       let item = rootList[i];
       if (String(item.parentId.slice().pop()) == String(id)) {
-        list.push(item);
+        list.push(item._doc);
       }
     }
     list.map((item) => {
